@@ -160,8 +160,8 @@ export let isAvailable = function () {
 
 export let requestPermissions = function () {
     return permissions.requestPermissions([
-      (<any>android).Manifest.permission.WRITE_EXTERNAL_STORAGE,
-      (<any>android).Manifest.permission.CAMERA
+        (<any>android).Manifest.permission.WRITE_EXTERNAL_STORAGE,
+        (<any>android).Manifest.permission.CAMERA
     ]);
 };
 
@@ -182,10 +182,23 @@ let rotateBitmap = function (picturePath, angle) {
     try {
         let matrix = new android.graphics.Matrix();
         matrix.postRotate(angle);
+
         let bmOptions = new android.graphics.BitmapFactory.Options();
+        bmOptions.inJustDecodeBounds = true;
+        android.graphics.BitmapFactory.decodeFile(picturePath, bmOptions);
+
+        const imageWidth: number = bmOptions.outWidth;
+        const imageHeight: number = bmOptions.outHeight;
+
+        // Calculate inSampleSize
+        bmOptions.inSampleSize = calculateInSampleSize(bmOptions, 100, 100);
+
+        // Decode bitmap with inSampleSize set
+        bmOptions.inJustDecodeBounds = false;
         let oldBitmap = android.graphics.BitmapFactory.decodeFile(picturePath, bmOptions);
+
         let finalBitmap = android.graphics.Bitmap.createBitmap(
-            oldBitmap, 0, 0, oldBitmap.getWidth(), oldBitmap.getHeight(), matrix, true);
+            oldBitmap, 0, 0, imageWidth, imageHeight, matrix, true);
         let out = new java.io.FileOutputStream(picturePath);
         finalBitmap.compress(android.graphics.Bitmap.CompressFormat.JPEG, 100, out);
         out.flush();
@@ -196,4 +209,27 @@ let rotateBitmap = function (picturePath, angle) {
                 trace.categories.Debug);
         }
     }
+};
+
+let calculateInSampleSize = function (
+    options: android.graphics.BitmapFactory.Options, reqWidth: number, reqHeight: number) {
+    // Raw height and width of image
+    const height: number = options.outHeight;
+    const width: number = options.outWidth;
+    let inSampleSize: number = 1;
+
+    if (height > reqHeight || width > reqWidth) {
+
+        const halfHeight: number = height / 2;
+        const halfWidth: number = width / 2;
+
+        // Calculate the largest inSampleSize value that is a power of 2 and keeps both
+        // height and width larger than the requested height and width.
+        while ((halfHeight / inSampleSize) >= reqHeight
+            && (halfWidth / inSampleSize) >= reqWidth) {
+            inSampleSize *= 2;
+        }
+    }
+
+    return inSampleSize;
 };
